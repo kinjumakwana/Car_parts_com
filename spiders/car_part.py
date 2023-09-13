@@ -15,7 +15,7 @@ import logging
 class CarPartSpider(scrapy.Spider):
     name = "car_part"
     allowed_domains = ["www.car-part.com"]
-    start_urls = "https://www.car-part.com"
+    start_urls = "https://www.car-part.com/noninterchange.htm"
     listing_url = "https://kosiski.autopartsearch.com/catalog-6/vehicle"
 
     pause_for = 0
@@ -42,101 +42,206 @@ class CarPartSpider(scrapy.Spider):
         total_parts = 0
 
         driver = response.meta["driver"]
+        
+        options = Select(WebDriverWait(driver, 10).until(
+            EC.presence_of_element_located((By.XPATH, '//select[@name="userDate"]'))))
+        
+        options2 = Select(WebDriverWait(driver, 10).until(
+            EC.presence_of_element_located((By.XPATH, '//select[@name="userDate2"]'))))
+       
+        # Extract the values as integers
+        # values = [option.get_attribute('value') for option in options.options ]
+        # Extract the values as integers, skipping non-numeric values
+        values = [int(option.get_attribute('value')) for option in options.options if option.get_attribute('value').isdigit()]
 
-        selectyear = Select(WebDriverWait(driver, 10).until(
-            EC.presence_of_element_located((By.XPATH, '//select[@id="year"]'))))
+
+        # Find the maximum and minimum values
+        max_value = max(values)
+        min_value = min(values)
+
+        # Print the results
+        print("Maximum Value:", max_value)
+        print("Minimum Value:", min_value)
+        
+
+        options.select_by_value(str(min_value))
+        options2.select_by_value(str(max_value))
+        print("Option selected ")
+        # sleep(10)
+        
+        selectmodel = Select(WebDriverWait(driver, 10).until(
+                            EC.presence_of_element_located((By.XPATH, '//select[@name="userModel"]'))))
 
         try:
             if WebDriverWait(driver, 5).until(
-                    EC.presence_of_element_located((By.XPATH, '//select[@id="year"]/option'))):
+                    EC.presence_of_element_located((By.XPATH, '//select[@name="userModel"]/option'))):
+                ModelValues = [option.get_attribute('value') for option in selectmodel.options]
 
-                YearValues = [option.get_attribute('value') for option in selectyear.options]
-
-                for year in YearValues:
-                    if year and year != "Select Year":  # Skip the placeholder option:
+                for model in ModelValues:
+                    if model and model != "Select a Make/Model":  # Skip the placeholder option
                         try:
-                            selectyear.select_by_value(year)
+                            selectmodel.select_by_value(model)
                             sleep(self.pause_for)
+                                            
                         except NoSuchElementException:
-                            print(f"Option with value '{year}' not found in year dropdown.")
+                            print(f"Option with value '{model}' not found in model dropdown.")
                             continue
 
-                        selectmodel = Select(WebDriverWait(driver, 10).until(
-                            EC.presence_of_element_located((By.XPATH, '//select[@id="model"]'))))
+                        selectParts = Select(WebDriverWait(driver, 10).until(
+                            EC.presence_of_element_located((By.XPATH, '//select[@name="userPart"]'))))
 
                         try:
                             if WebDriverWait(driver, 5).until(
-                                    EC.presence_of_element_located((By.XPATH, '//select[@id="model"]/option'))):
-                                ModelValues = [option.get_attribute('value') for option in selectmodel.options]
+                                    EC.presence_of_element_located(
+                                        (By.XPATH,
+                                        '//select[@name="userPart"]/option'))):
+                                partValues = [option.get_attribute('value') for option in
+                                            selectParts.options]
 
-                                for model in ModelValues:
-                                    if model and model != "Select Make/Model":  # Skip the placeholder option
+                                for part in partValues:
+                                    print(part)
+                                    if part and part != "Select Parts":
+                                        total_parts += 1
+                                        
                                         try:
-                                            selectmodel.select_by_value(model)
+                                            selectParts.select_by_value(part)
                                             sleep(self.pause_for)
+                                            # sleep(1)
+
+                                            # Wait for the dropdown to be present and visible
+                                            selectarea = WebDriverWait(driver, 10).until(
+                                                EC.presence_of_element_located((By.XPATH, '//select[@name="userLocation"]'))
+                                            )
+                                            # Create a Select object from the dropdown
+                                            select = Select(selectarea)
+
+                                            # Select the option by its visible text
+                                            select.select_by_visible_text('All Areas/Select an Area')
                                             
-                                        except NoSuchElementException:
-                                            print(f"Option with value '{model}' not found in model dropdown.")
-                                            continue
+                                            selectsort = WebDriverWait(driver, 10).until(
+                                                EC.presence_of_element_located((By.XPATH, '//select[@name="userPreference"]'))
+                                            )
+                                            selects = Select(selectsort)
+                                            selects.select_by_visible_text('Year')
+                                            
+                                            print(total_parts, "|", model, "|", part)
 
-                                        selectParts = Select(WebDriverWait(driver, 10).until(
-                                            EC.presence_of_element_located((By.XPATH, '//select[@name="userPart"]'))))
-
-                                        try:
-                                            if WebDriverWait(driver, 5).until(
-                                                    EC.presence_of_element_located(
-                                                        (By.XPATH,
-                                                        '//select[@name="userPart"]/option'))):
-                                                partValues = [option.get_attribute('value') for option in
-                                                            selectParts.options]
-
-                                                for part in partValues:
-                                                    print(part)
-                                                    if part and part != "Select Part":
-                                                        total_parts += 1
-                                                        
-                                                        try:
-                                                            selectParts.select_by_value(part)
-                                                            sleep(self.pause_for)
-                                                            # sleep(1)
-
-                                                            # Wait for the dropdown to be present and visible
-                                                            selectarea = WebDriverWait(driver, 10).until(
-                                                                EC.presence_of_element_located((By.XPATH, '//select[@id="Loc"]'))
-                                                            )
-                                                            # Create a Select object from the dropdown
-                                                            select = Select(selectarea)
-
-                                                            # Select the option by its visible text
-                                                            select.select_by_visible_text('All Areas/Select an Area')
-                                                            
-                                                            selectsort = WebDriverWait(driver, 10).until(
-                                                                EC.presence_of_element_located((By.XPATH, '//select[@name="userPreference"]'))
-                                                            )
-                                                            selects = Select(selectsort)
-                                                            selects.select_by_visible_text('Year')
-                                                            
-                                                            print(total_parts, "|", model, "|", year, "|", part)
-
-                                                            submit_btn = WebDriverWait(driver, 5).until(
-                                                                EC.presence_of_element_located(
-                                                                    (By.XPATH,
-                                                                    '//input[@name="Search Car Part Inventory"]')))
-                                                            submit_btn.click()
-                                                            sleep(5)
-                                                            
-                                                            # Go back to the previous page to continue selecting other options
-                                                            driver.back()
-                                                            sleep(self.pause_for)
-                                                            # Re-select the part for the next iteration
-                                                            # selectParts = Select(WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.XPATH, '//select[@name="userPart"]'))))
-                                                
+                                            submit_btn = WebDriverWait(driver, 5).until(
+                                                EC.presence_of_element_located(
+                                                    (By.XPATH,
+                                                    '//input[@name="Search Car Part Inventory"]')))
+                                            submit_btn.click()
+                                            sleep(5)
+                                            
+                                            # Go back to the previous page to continue selecting other options
+                                            driver.back()
+                                            sleep(self.pause_for)
+                                            # Re-select the part for the next iteration
+                                            # selectParts = Select(WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.XPATH, '//select[@name="userPart"]'))))
+                                
                                                                            
-                                                        except:
-                                                            pass
                                         except:
                                             pass
+                                   
                         except:
                             pass
         except:
             pass
+        
+        # selectyear = Select(WebDriverWait(driver, 10).until(
+        #     EC.presence_of_element_located((By.XPATH, '//select[@id="year"]'))))
+
+        # try:
+        #     if WebDriverWait(driver, 5).until(
+        #             EC.presence_of_element_located((By.XPATH, '//select[@id="year"]/option'))):
+
+        #         YearValues = [option.get_attribute('value') for option in selectyear.options]
+
+        #         for year in YearValues:
+        #             if year and year != "Select Year":  # Skip the placeholder option:
+        #                 try:
+        #                     selectyear.select_by_value(year)
+        #                     sleep(self.pause_for)
+        #                 except NoSuchElementException:
+        #                     print(f"Option with value '{year}' not found in year dropdown.")
+        #                     continue
+
+        #                 selectmodel = Select(WebDriverWait(driver, 10).until(
+        #                     EC.presence_of_element_located((By.XPATH, '//select[@id="model"]'))))
+
+        #                 try:
+        #                     if WebDriverWait(driver, 5).until(
+        #                             EC.presence_of_element_located((By.XPATH, '//select[@id="model"]/option'))):
+        #                         ModelValues = [option.get_attribute('value') for option in selectmodel.options]
+
+        #                         for model in ModelValues:
+        #                             if model and model != "Select Make/Model":  # Skip the placeholder option
+        #                                 try:
+        #                                     selectmodel.select_by_value(model)
+        #                                     sleep(self.pause_for)
+                                            
+        #                                 except NoSuchElementException:
+        #                                     print(f"Option with value '{model}' not found in model dropdown.")
+        #                                     continue
+
+        #                                 selectParts = Select(WebDriverWait(driver, 10).until(
+        #                                     EC.presence_of_element_located((By.XPATH, '//select[@name="userPart"]'))))
+
+        #                                 try:
+        #                                     if WebDriverWait(driver, 5).until(
+        #                                             EC.presence_of_element_located(
+        #                                                 (By.XPATH,
+        #                                                 '//select[@name="userPart"]/option'))):
+        #                                         partValues = [option.get_attribute('value') for option in
+        #                                                     selectParts.options]
+
+        #                                         for part in partValues:
+        #                                             print(part)
+        #                                             if part and part != "Select Part":
+        #                                                 total_parts += 1
+                                                        
+        #                                                 try:
+        #                                                     selectParts.select_by_value(part)
+        #                                                     sleep(self.pause_for)
+        #                                                     # sleep(1)
+
+        #                                                     # Wait for the dropdown to be present and visible
+        #                                                     selectarea = WebDriverWait(driver, 10).until(
+        #                                                         EC.presence_of_element_located((By.XPATH, '//select[@id="Loc"]'))
+        #                                                     )
+        #                                                     # Create a Select object from the dropdown
+        #                                                     select = Select(selectarea)
+
+        #                                                     # Select the option by its visible text
+        #                                                     select.select_by_visible_text('All Areas/Select an Area')
+                                                            
+        #                                                     selectsort = WebDriverWait(driver, 10).until(
+        #                                                         EC.presence_of_element_located((By.XPATH, '//select[@name="userPreference"]'))
+        #                                                     )
+        #                                                     selects = Select(selectsort)
+        #                                                     selects.select_by_visible_text('Year')
+                                                            
+        #                                                     print(total_parts, "|", model, "|", year, "|", part)
+
+        #                                                     submit_btn = WebDriverWait(driver, 5).until(
+        #                                                         EC.presence_of_element_located(
+        #                                                             (By.XPATH,
+        #                                                             '//input[@name="Search Car Part Inventory"]')))
+        #                                                     submit_btn.click()
+        #                                                     sleep(5)
+                                                            
+        #                                                     # Go back to the previous page to continue selecting other options
+        #                                                     driver.back()
+        #                                                     sleep(self.pause_for)
+        #                                                     # Re-select the part for the next iteration
+        #                                                     # selectParts = Select(WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.XPATH, '//select[@name="userPart"]'))))
+                                                
+                                                                           
+        #                                                 except:
+        #                                                     pass
+        #                                 except:
+        #                                     pass
+        #                 except:
+        #                     pass
+        # except:
+        #     pass
